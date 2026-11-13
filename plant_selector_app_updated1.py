@@ -10,6 +10,7 @@ Growing Season, Soil Type, and Plant Category.
 Features:
 - Dynamically loads 'plant_database_template.csv'
 - Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
+- Robust asset path resolution for all plant IDs (P004, P009, P010, etc.)
 - Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
 - Supports Streamlit Web GUI & Terminal CLI modes
 
@@ -229,7 +230,7 @@ def get_target_asset_dir(plant_id: str) -> str:
     return DEFAULT_ASSET_DIR
 
 def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
-    """Finds image asset in the appropriate directory based on the ID range."""
+    """Finds image asset in the appropriate directory with robust multi-pattern filename matching."""
     primary_dir = get_target_asset_dir(plant_id)
     search_dirs = [
         primary_dir,
@@ -252,26 +253,44 @@ def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple
 
     for d in unique_search_dirs:
         if os.path.exists(d) and os.path.isdir(d):
-            files = os.listdir(d)
-            # 1. Match stem with plant ID
+            try:
+                files = os.listdir(d)
+            except Exception:
+                continue
+
+            # Check precise candidates first
+            candidates = [
+                f"{clean_id}.png",
+                f"{clean_id}.jpg",
+                f"{clean_id}.jpeg",
+                f"plant_{clean_id}.png",
+                f"plant_{clean_id}.jpg",
+                plant_image_filename.strip() if plant_image_filename else ""
+            ]
+            for cand in candidates:
+                if cand and cand in files:
+                    full_path = os.path.join(d, cand)
+                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
+                        return full_path, f"Found exact match {d}/{cand}"
+
+            # Fallback: case-insensitive stem search
             for f in files:
                 stem, ext = os.path.splitext(f)
-                if stem.lower() == clean_id or stem.lower() == f"plant_{clean_id}":
-                    return os.path.join(d, f), f"Found {d}/{f}"
-            # 2. Match exact filename if provided
-            if plant_image_filename:
-                clean_img = plant_image_filename.strip()
-                if clean_img in files:
-                    return os.path.join(d, clean_img), f"Found {d}/{clean_img}"
+                if stem.lower() in [clean_id, f"plant_{clean_id}"]:
+                    full_path = os.path.join(d, f)
+                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
+                        return full_path, f"Found stem match {d}/{f}"
 
     return None, f"Image for ID '{clean_id}' not found in asset directories"
 
 def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: str) -> str:
-    """Creates a visual asset card in the appropriate target directory if missing."""
+    """Ensures a visual asset card exists in the appropriate target directory."""
     target_dir = get_target_asset_dir(plant_id)
     os.makedirs(target_dir, exist_ok=True)
     out_path = os.path.join(target_dir, f"{plant_id}.png")
-    if os.path.exists(out_path):
+    
+    # Generate if missing or zero-byte
+    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
         return out_path
 
     try:
@@ -401,14 +420,15 @@ def run_streamlit_gui():
                 with col1:
                     st.markdown("##### 🌿 Plant Visual Artwork")
                     target_display_dir = get_target_asset_dir(plant_id)
+                    
+                    # Ensure fallback card is generated if image path is not resolved
+                    if not img_path or not os.path.exists(img_path):
+                        img_path = ensure_plant_asset_image(plant_id, p.get("english_name", ""), p.get("botanical_name", ""))
+
                     if img_path and os.path.exists(img_path):
                         st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                     else:
-                        fallback_card = ensure_plant_asset_image(plant_id, p.get("english_name", ""), p.get("botanical_name", ""))
-                        if fallback_card and os.path.exists(fallback_card):
-                            st.image(fallback_card, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
-                        else:
-                            st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
+                        st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
 
                 # Column 2: Botanical Specifications
                 with col2:
