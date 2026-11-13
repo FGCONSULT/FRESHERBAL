@@ -10,8 +10,7 @@ Growing Season, Soil Type, and Plant Category.
 Features:
 - Dynamically loads 'plant_database_template.csv'
 - Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
-- Robust asset path resolution & PIL object rendering for 100% visible images
-- Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
+- Uses correct Streamlit use_container_width=True for reliable image rendering
 - Supports Streamlit Web GUI & Terminal CLI modes
 
 Usage:
@@ -416,11 +415,11 @@ def run_streamlit_gui():
 
                     if img_path and os.path.exists(img_path):
                         try:
-                            # Open as PIL Image and pass object to st.image for robust rendering
                             pil_img = Image.open(img_path)
-                            st.image(pil_img, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
+                            # Use valid Streamlit container width parameter instead of invalid string width
+                            st.image(pil_img, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
                         except Exception as e:
-                            st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
+                            st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
                     else:
                         st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
 
