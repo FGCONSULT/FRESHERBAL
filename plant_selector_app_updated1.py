@@ -10,7 +10,7 @@ Growing Season, Soil Type, and Plant Category.
 Features:
 - Dynamically loads 'plant_database_template.csv'
 - Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
-- Absolute path resolution and PIL Image loading for 100% reliable Streamlit rendering
+- Robust asset path resolution & PIL object rendering for 100% visible images
 - Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
 - Supports Streamlit Web GUI & Terminal CLI modes
 
@@ -148,12 +148,10 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
                 if not plant_id or not eng_name:
                     continue
 
-                # Parse pipe-separated lists
                 cats = [c.strip() for c in row.get("category", "").replace(",", "|").split("|") if c.strip()]
                 locs = [l.strip() for l in row.get("suitable_locations", "").replace(",", "|").split("|") if l.strip()]
                 vars_list = [v.strip() for v in row.get("varieties", "").split(",") if v.strip()]
 
-                # Parse price
                 try:
                     price_inr = float(row.get("price_inr", 250))
                 except Exception:
@@ -230,7 +228,7 @@ def get_target_asset_dir(plant_id: str) -> str:
     return DEFAULT_ASSET_DIR
 
 def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
-    """Finds image asset and returns absolute path with robust matching."""
+    """Finds image asset and returns absolute path."""
     primary_dir = get_target_asset_dir(plant_id)
     search_dirs = [
         primary_dir,
@@ -418,10 +416,10 @@ def run_streamlit_gui():
 
                     if img_path and os.path.exists(img_path):
                         try:
-                            # Open as PIL Image object to ensure robust rendering in Streamlit expanders
+                            # Open as PIL Image and pass object to st.image for robust rendering
                             pil_img = Image.open(img_path)
                             st.image(pil_img, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
-                        except Exception:
+                        except Exception as e:
                             st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                     else:
                         st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
