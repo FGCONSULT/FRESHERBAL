@@ -2,20 +2,20 @@
 ================================================================================
 🌿 FRESHERBAL® SMART PLANT SELECTOR & CULTIVATION GUIDE APPLICATION
 ================================================================================
-An interactive Streamlit & CLI application for selecting plant species and obtaining 
+An interactive Streamlit & CLI application for selecting plant species and obtaining
 detailed botanical profiles, cultivation parameters, matched containers, and 
-Package of Practices (PoP) based on user criteria: Budget, Planting Area, 
-Location, Growing Season, Soil Type, and Plant Category.
+Package of Practices (PoP) based on user criteria: Budget, Planting Area, Location, 
+Growing Season, Soil Type, and Plant Category.
 
 Features:
-  - Dynamically loads 'plant_database_template.csv'
-  - Displays plant visual artwork from 'plant_assets_D/' matching the plant 'id'
-  - Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
-  - Supports Streamlit Web GUI & Terminal CLI modes
+- Dynamically loads 'plant_database_template.csv'
+- Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
+- Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
+- Supports Streamlit Web GUI & Terminal CLI modes
 
 Usage:
-  - Web App Mode:      streamlit run plant_selector_app.py
-  - Terminal CLI Mode: python3 plant_selector_app.py
+- Web App Mode:      streamlit run plant_selector_app.py
+- Terminal CLI Mode: python3 plant_selector_app.py
 """
 
 import os
@@ -27,6 +27,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 DEFAULT_CSV_PATH = "plant_database_template.csv"
 DEFAULT_ASSET_DIR = "plant_assets_D"
+ALT_ASSET_DIR = "plant_assets_D1"
 
 # ------------------------------------------------------------------------------
 # DEFAULT FALLBACK DATASET
@@ -73,44 +74,44 @@ DEFAULT_PLANT_DATABASE: List[Dict[str, Any]] = [
         "price_usd": 12.0
     },
     {
-        "id": "P002",
-        "english_name": "Areca Palm / Golden Cane Palm",
-        "botanical_name": "Dypsis lutescens",
-        "hindi_name": "Areca Palm (अरेका पाम)",
-        "varieties": ["Golden Cane", "Dwarf Areca"],
-        "category": ["Indoor", "Aesthetics", "Other plants"],
-        "plant_type": "Multi-stemmed evergreen palm",
-        "habit": "Clumping upright palm with golden cane trunks",
-        "height": "1.5–3 m indoors",
-        "spread": "1.0–2.5 m",
-        "suitable_locations": ["small indoor eatout room", "Frontyard garden", "Large town garden", "Patio", "Terrace", "Balconies"],
-        "suitable_planters": '22" Tall Rectangular Tower Planter',
-        "growing_season": "Spring and Summer",
-        "nursery_sowing_time": "February–March",
-        "seedling_transplanting_time": "July–August",
-        "soil_type": "Well-drained sandy loam enriched with leaf mold & compost",
-        "soil_ph": "6.0–6.5",
-        "sun_intensity": "Bright indirect to light direct sunlight",
-        "humidity": "50%–70%",
-        "plant_image": "plant_p002.png",
+        "id": "P100",
+        "english_name": "Sample Plant P100",
+        "botanical_name": "Exotic specimen p100",
+        "hindi_name": "Sample Plant (नमूना पौधा)",
+        "varieties": ["Standard"],
+        "category": ["Indoor", "Aesthetics"],
+        "plant_type": "Evergreen foliage",
+        "habit": "Upright",
+        "height": "1.0 m",
+        "spread": "0.5 m",
+        "suitable_locations": ["Balconies", "Terrace"],
+        "suitable_planters": '12" Ceramic Pot',
+        "growing_season": "Spring",
+        "nursery_sowing_time": "March",
+        "seedling_transplanting_time": "April",
+        "soil_type": "Loamy soil",
+        "soil_ph": "6.5",
+        "sun_intensity": "Bright indirect light",
+        "humidity": "60%",
+        "plant_image": "plant_p100.png",
         "package_of_practices": {
-            "propagation_material": "Seeds or clump division",
-            "seed_rate": "5–10 seeds per container",
-            "seed_spacing": "15–20 cm spacing",
-            "sowing_method": "Direct seed sowing 2 cm deep in nursery beds",
-            "manuring": "Slow-release palm fertilizer with Mg & K every 2 months",
-            "irrigation": "Keep soil evenly moist; wipe fronds to clear dust",
-            "intercultural_practices": "Pruning yellow/brown bottom fronds",
-            "plant_protection": "Treat mealybugs & scale with neem oil",
-            "gestation_period": "2–3 months for seed germination",
-            "harvest_method": "Frond trimming",
-            "yield": "Multi-stem frond canopy"
+            "propagation_material": "Seeds",
+            "seed_rate": "2 seeds",
+            "seed_spacing": "20 cm",
+            "sowing_method": "Direct",
+            "manuring": "Compost",
+            "irrigation": "Moderate",
+            "intercultural_practices": "Weeding",
+            "plant_protection": "Neem oil",
+            "gestation_period": "4 weeks",
+            "harvest_method": "Pruning",
+            "yield": "High"
         },
-        "use": "Top NASA clean air plant, living barrier screen",
-        "locality_source": "Local Nurseries & Online Outlets",
+        "use": "Decoration",
+        "locality_source": "Local Nursery",
         "availability": "High",
-        "price_inr": 350,
-        "price_usd": 9.5
+        "price_inr": 500,
+        "price_usd": 14.0
     }
 ]
 
@@ -127,7 +128,6 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
         '/workspace/artifacts/plant_database_template.csv',
         '/workspace/scratch/plant_database_template.csv'
     ]
-
     target_path = None
     for p in search_paths:
         if os.path.exists(p) and os.path.isfile(p):
@@ -212,15 +212,31 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
     return records if records else DEFAULT_PLANT_DATABASE
 
 # ------------------------------------------------------------------------------
-# IMAGE ASSET RESOLVER FOR plant_assets_D
+# DYNAMIC DIRECTORY ROUTER FOR P001-P099 & P100-P199
 # ------------------------------------------------------------------------------
+def get_target_asset_dir(plant_id: str) -> str:
+    """Routes plant ID to the correct folder: P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1."""
+    clean_id = plant_id.strip().upper()
+    try:
+        if clean_id.startswith('P'):
+            num_part = int(clean_id[1:])
+            if 1 <= num_part <= 99:
+                return DEFAULT_ASSET_DIR
+            elif 100 <= num_part <= 199:
+                return ALT_ASSET_DIR
+    except ValueError:
+        pass
+    return DEFAULT_ASSET_DIR
+
 def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
-    """
-    Finds image asset in 'plant_assets_D' matching 'id' column (e.g., P001.png, P001.jpg, P001.jpeg, P001.webp).
-    """
+    """Finds image asset in the appropriate directory based on the ID range."""
+    primary_dir = get_target_asset_dir(plant_id)
     search_dirs = [
+        primary_dir,
         DEFAULT_ASSET_DIR,
+        ALT_ASSET_DIR,
         './plant_assets_D',
+        './plant_assets_D1',
         '/workspace/scratch/plant_assets_D',
         '/workspace/artifacts/plant_assets_D',
         '/workspace/out/plant_assets_D'
@@ -230,7 +246,11 @@ def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple
     if not clean_id:
         return None, "Empty plant ID"
 
-    for d in search_dirs:
+    # Deduplicate search paths preserving order
+    seen = set()
+    unique_search_dirs = [d for d in search_dirs if not (d in seen or seen.add(d))]
+
+    for d in unique_search_dirs:
         if os.path.exists(d) and os.path.isdir(d):
             files = os.listdir(d)
             # 1. Match stem with plant ID
@@ -238,30 +258,27 @@ def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple
                 stem, ext = os.path.splitext(f)
                 if stem.lower() == clean_id or stem.lower() == f"plant_{clean_id}":
                     return os.path.join(d, f), f"Found {d}/{f}"
-
-            # 2. Match exact filename
+            # 2. Match exact filename if provided
             if plant_image_filename:
                 clean_img = plant_image_filename.strip()
                 if clean_img in files:
                     return os.path.join(d, clean_img), f"Found {d}/{clean_img}"
 
-    return None, f"Image for ID '{clean_id}' not found in plant_assets_D"
+    return None, f"Image for ID '{clean_id}' not found in asset directories"
 
 def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: str) -> str:
-    """Creates a visual asset card in plant_assets_D if missing."""
-    os.makedirs(DEFAULT_ASSET_DIR, exist_ok=True)
-    out_path = os.path.join(DEFAULT_ASSET_DIR, f"{plant_id}.png")
-    
+    """Creates a visual asset card in the appropriate target directory if missing."""
+    target_dir = get_target_asset_dir(plant_id)
+    os.makedirs(target_dir, exist_ok=True)
+    out_path = os.path.join(target_dir, f"{plant_id}.png")
     if os.path.exists(out_path):
         return out_path
 
     try:
         img = Image.new('RGB', (600, 450), color=(245, 248, 242))
         draw = ImageDraw.Draw(img)
-        
         draw.rectangle([15, 15, 585, 435], outline=(30, 80, 45), width=4)
         draw.rectangle([25, 25, 575, 80], fill=(30, 80, 45))
-        
         try:
             font_title = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 20)
             font_sub = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf', 14)
@@ -276,10 +293,8 @@ def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: s
         draw.ellipse([200, 150, 400, 350], fill=(45, 115, 60), outline=(20, 60, 30), width=3)
         draw.polygon([(300, 120), (220, 230), (380, 230)], fill=(65, 145, 80))
         draw.line([(300, 130), (300, 310)], fill=(220, 245, 220), width=3)
-
         draw.text((40, 360), f"Filename: {plant_id}.png", fill=(60, 60, 60), font=font_body)
-        draw.text((40, 390), "Folder: plant_assets_D", fill=(30, 80, 45), font=font_body)
-
+        draw.text((40, 390), f"Folder: {target_dir}", fill=(30, 80, 45), font=font_body)
         img.save(out_path)
     except Exception:
         pass
@@ -293,14 +308,7 @@ class PlantSelectorEngine:
     def __init__(self, database: List[Dict[str, Any]] = None):
         self.database = database if database else load_csv_database()
 
-    def filter_plants(
-        self,
-        category: Optional[str] = None,
-        location: Optional[str] = None,
-        max_budget_inr: Optional[float] = None,
-        soil_type: Optional[str] = None,
-        growing_season: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
+    def filter_plants(self, category: Optional[str] = None, location: Optional[str] = None, max_budget_inr: Optional[float] = None, soil_type: Optional[str] = None, growing_season: Optional[str] = None) -> List[Dict[str, Any]]:
         results = []
         for plant in self.database:
             # Category filter
@@ -308,28 +316,23 @@ class PlantSelectorEngine:
                 cats = [c.lower() for c in plant.get("category", [])]
                 if category.lower() not in cats:
                     continue
-
             # Location filter
             if location and location.lower() != "all":
                 locs = [l.lower() for l in plant.get("suitable_locations", [])]
                 if not any(location.lower() in l for l in locs):
                     continue
-
             # Budget filter
             if max_budget_inr is not None and max_budget_inr > 0:
                 if plant.get("price_inr", 0) > max_budget_inr:
                     continue
-
             # Soil filter
             if soil_type and soil_type.lower() != "all":
                 if soil_type.lower() not in plant.get("soil_type", "").lower():
                     continue
-
             # Season filter
             if growing_season and growing_season.lower() != "all":
                 if growing_season.lower() not in plant.get("growing_season", "").lower():
                     continue
-
             results.append(plant)
         return results
 
@@ -338,7 +341,6 @@ class PlantSelectorEngine:
 # ------------------------------------------------------------------------------
 def run_streamlit_gui():
     import streamlit as st
-
     st.set_page_config(
         page_title="FresHerbal® Plant Selector App",
         page_icon="🌿",
@@ -347,24 +349,22 @@ def run_streamlit_gui():
 
     st.title("🌿 FresHerbal® Smart Plant Selector & Cultivation Guide")
     st.markdown("""
-    Select your specific criteria below (Category, Location, Budget, Soil Type, Growing Season) to discover suitable plant species 
-    along with their complete **Plant Visual Artwork**, **Botanical Specifications**, **Matched Planters**, and **Package of Practices (PoP)**.
+    Select your specific criteria below (Category, Location, Budget, Soil Type, Growing Season) to discover suitable plant species along with their complete **Plant Visual Artwork**, **Botanical Specifications**, **Matched Planters**, and **Package of Practices (PoP)**.
     """)
 
     database_records = load_csv_database()
     engine = PlantSelectorEngine(database=database_records)
 
     categories = [
-        "All", "Aromatic", "Aesthetics", "Medicinal", "Indoor", "Spice hub", 
-        "Culinary", "Greens", "Vegifresh", "Fruit plants", "Other plants"
+        "All", "Aromatic", "Aesthetics", "Medicinal", "Indoor", 
+        "Spice hub", "Culinary", "Greens", "Vegifresh", "Fruit plants", "Other plants"
     ]
-    
     locations = [
-        "All", "small backyard garden", "small indoor eatout room", "garden walls", "Trellis", 
-        "Patio", "Large town garden", "sunny rooftops", "shady rooftops", "Terrace", 
-        "Balconies", "Frontgate", "Frontyard garden", "Front home door", "Back home door", "open field"
+        "All", "small backyard garden", "small indoor eatout room", "garden walls", 
+        "Trellis", "Patio", "Large town garden", "sunny rooftops", "shady rooftops", 
+        "Terrace", "Balconies", "Frontgate", "Frontyard garden", "Front home door", 
+        "Back home door", "open field"
     ]
-
     seasons = ["All", "Spring", "Summer", "Monsoon", "Autumn", "Winter"]
 
     # Sidebar Filter Controls
@@ -394,12 +394,13 @@ def run_streamlit_gui():
             with st.expander(f"🌿 {p['english_name']} — ({p['botanical_name']}) | ID: {plant_id} | Price: ₹{p['price_inr']}", expanded=True):
                 col1, col2, col3 = st.columns([1.2, 1.8, 2.0])
 
-                # Image resolution from folder plant_assets_D matching ID
+                # Image resolution matching ID range (P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1)
                 img_path, img_msg = get_plant_image_path(plant_id, p.get("plant_image", ""))
 
-                # Column 1: Plant Visual Artwork (NO DEPRECATION WARNINGS - uses width='stretch')
+                # Column 1: Plant Visual Artwork
                 with col1:
                     st.markdown("##### 🌿 Plant Visual Artwork")
+                    target_display_dir = get_target_asset_dir(plant_id)
                     if img_path and os.path.exists(img_path):
                         st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                     else:
@@ -407,7 +408,7 @@ def run_streamlit_gui():
                         if fallback_card and os.path.exists(fallback_card):
                             st.image(fallback_card, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                         else:
-                            st.info(f"Asset File: plant_assets_D/{plant_id}.png")
+                            st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
 
                 # Column 2: Botanical Specifications
                 with col2:
