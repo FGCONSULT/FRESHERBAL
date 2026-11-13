@@ -9,8 +9,8 @@ Growing Season, Soil Type, and Plant Category.
 
 Features:
 - Dynamically loads 'plant_database_template.csv'
-- Automatically initializes './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
-- Uses BytesIO streaming and explicit directory creation for 100% reliable image rendering
+- Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
+- Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
 - Supports Streamlit Web GUI & Terminal CLI modes
 
 Usage:
@@ -22,17 +22,12 @@ import os
 import sys
 import csv
 import json
-from io import BytesIO
 from typing import List, Dict, Any, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
 DEFAULT_CSV_PATH = "plant_database_template.csv"
 DEFAULT_ASSET_DIR = "plant_assets_D"
 ALT_ASSET_DIR = "plant_assets_D1"
-
-# Ensure asset directories exist immediately upon startup
-os.makedirs(DEFAULT_ASSET_DIR, exist_ok=True)
-os.makedirs(ALT_ASSET_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 # DEFAULT FALLBACK DATASET
@@ -152,10 +147,12 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
                 if not plant_id or not eng_name:
                     continue
 
+                # Parse pipe-separated lists
                 cats = [c.strip() for c in row.get("category", "").replace(",", "|").split("|") if c.strip()]
                 locs = [l.strip() for l in row.get("suitable_locations", "").replace(",", "|").split("|") if l.strip()]
                 vars_list = [v.strip() for v in row.get("varieties", "").split(",") if v.strip()]
 
+                # Parse price
                 try:
                     price_inr = float(row.get("price_inr", 250))
                 except Exception:
@@ -231,13 +228,50 @@ def get_target_asset_dir(plant_id: str) -> str:
         pass
     return DEFAULT_ASSET_DIR
 
+def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
+    """Finds image asset in the appropriate directory based on the ID range."""
+    primary_dir = get_target_asset_dir(plant_id)
+    search_dirs = [
+        primary_dir,
+        DEFAULT_ASSET_DIR,
+        ALT_ASSET_DIR,
+        './plant_assets_D',
+        './plant_assets_D1',
+        '/workspace/scratch/plant_assets_D',
+        '/workspace/artifacts/plant_assets_D',
+        '/workspace/out/plant_assets_D'
+    ]
+
+    clean_id = plant_id.strip().lower()
+    if not clean_id:
+        return None, "Empty plant ID"
+
+    # Deduplicate search paths preserving order
+    seen = set()
+    unique_search_dirs = [d for d in search_dirs if not (d in seen or seen.add(d))]
+
+    for d in unique_search_dirs:
+        if os.path.exists(d) and os.path.isdir(d):
+            files = os.listdir(d)
+            # 1. Match stem with plant ID
+            for f in files:
+                stem, ext = os.path.splitext(f)
+                if stem.lower() == clean_id or stem.lower() == f"plant_{clean_id}":
+                    return os.path.join(d, f), f"Found {d}/{f}"
+            # 2. Match exact filename if provided
+            if plant_image_filename:
+                clean_img = plant_image_filename.strip()
+                if clean_img in files:
+                    return os.path.join(d, clean_img), f"Found {d}/{clean_img}"
+
+    return None, f"Image for ID '{clean_id}' not found in asset directories"
+
 def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: str) -> str:
-    """Guarantees a visual asset card exists on disk and returns its absolute path."""
+    """Creates a visual asset card in the appropriate target directory if missing."""
     target_dir = get_target_asset_dir(plant_id)
     os.makedirs(target_dir, exist_ok=True)
-    out_path = os.path.abspath(os.path.join(target_dir, f"{plant_id}.png"))
-    
-    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+    out_path = os.path.join(target_dir, f"{plant_id}.png")
+    if os.path.exists(out_path):
         return out_path
 
     try:
@@ -267,37 +301,6 @@ def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: s
 
     return out_path
 
-def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
-    """Finds image asset or automatically generates it if missing."""
-    target_dir = get_target_asset_dir(plant_id)
-    os.makedirs(target_dir, exist_ok=True)
-    
-    clean_id = plant_id.strip().lower()
-    if not clean_id:
-        return None, "Empty plant ID"
-
-    # Direct target path check
-    direct_path = os.path.abspath(os.path.join(target_dir, f"{plant_id}.png"))
-    if os.path.exists(direct_path) and os.path.getsize(direct_path) > 0:
-        return direct_path, f"Found direct path {direct_path}"
-
-    # Search across directories as fallback
-    search_dirs = [target_dir, DEFAULT_ASSET_DIR, ALT_ASSET_DIR]
-    for d in search_dirs:
-        if os.path.exists(d) and os.path.isdir(d):
-            try:
-                files = os.listdir(d)
-            except Exception:
-                continue
-            for f in files:
-                stem, ext = os.path.splitext(f)
-                if stem.lower() in [clean_id, f"plant_{clean_id}"]:
-                    full_path = os.path.abspath(os.path.join(d, f))
-                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
-                        return full_path, f"Found match {full_path}"
-
-    return None, "Not found"
-
 # ------------------------------------------------------------------------------
 # CORE APPLICATION LOGIC ENGINE
 # ------------------------------------------------------------------------------
@@ -308,20 +311,25 @@ class PlantSelectorEngine:
     def filter_plants(self, category: Optional[str] = None, location: Optional[str] = None, max_budget_inr: Optional[float] = None, soil_type: Optional[str] = None, growing_season: Optional[str] = None) -> List[Dict[str, Any]]:
         results = []
         for plant in self.database:
+            # Category filter
             if category and category.lower() != "all":
                 cats = [c.lower() for c in plant.get("category", [])]
                 if category.lower() not in cats:
                     continue
+            # Location filter
             if location and location.lower() != "all":
                 locs = [l.lower() for l in plant.get("suitable_locations", [])]
                 if not any(location.lower() in l for l in locs):
                     continue
+            # Budget filter
             if max_budget_inr is not None and max_budget_inr > 0:
                 if plant.get("price_inr", 0) > max_budget_inr:
                     continue
+            # Soil filter
             if soil_type and soil_type.lower() != "all":
                 if soil_type.lower() not in plant.get("soil_type", "").lower():
                     continue
+            # Season filter
             if growing_season and growing_season.lower() != "all":
                 if growing_season.lower() not in plant.get("growing_season", "").lower():
                     continue
@@ -381,31 +389,26 @@ def run_streamlit_gui():
     if not matches:
         st.warning("No plants matched your exact combination of filters. Try expanding your budget slider or setting Location/Category to 'All'.")
     else:
-        for idx, p in enumerate(matches):
+        for p in matches:
             plant_id = str(p.get("id", "")).strip()
-            
             with st.expander(f"🌿 {p['english_name']} — ({p['botanical_name']}) | ID: {plant_id} | Price: ₹{p['price_inr']}", expanded=True):
                 col1, col2, col3 = st.columns([1.2, 1.8, 2.0])
+
+                # Image resolution matching ID range (P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1)
+                img_path, img_msg = get_plant_image_path(plant_id, p.get("plant_image", ""))
 
                 # Column 1: Plant Visual Artwork
                 with col1:
                     st.markdown("##### 🌿 Plant Visual Artwork")
-                    
-                    # Ensure image exists on disk before attempting to open
-                    img_path, _ = get_plant_image_path(plant_id, p.get("plant_image", ""))
-                    if not img_path or not os.path.exists(img_path):
-                        img_path = ensure_plant_asset_image(plant_id, p.get("english_name", ""), p.get("botanical_name", ""))
-
+                    target_display_dir = get_target_asset_dir(plant_id)
                     if img_path and os.path.exists(img_path):
-                        try:
-                            pil_img = Image.open(img_path)
-                            buffered = BytesIO()
-                            pil_img.save(buffered, format="PNG")
-                            st.image(buffered.getvalue(), caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
-                        except Exception:
-                            st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
+                        st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                     else:
-                        st.info(f"Asset File Missing: {plant_id}.png")
+                        fallback_card = ensure_plant_asset_image(plant_id, p.get("english_name", ""), p.get("botanical_name", ""))
+                        if fallback_card and os.path.exists(fallback_card):
+                            st.image(fallback_card, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
+                        else:
+                            st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
 
                 # Column 2: Botanical Specifications
                 with col2:
