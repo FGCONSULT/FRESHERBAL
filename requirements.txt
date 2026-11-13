@@ -1,0 +1,10 @@
+# FresHerbal® Indoor Plants Cultivation & Selection Suite
+# Dependencies required for plant_selector_app.py, download_plant_images.py, and update_database_from_pdf.py
+
+streamlit>=1.30.0
+pandas>=2.0.0
+Pillow>=10.0.0
+icrawler>=0.6.6
+pypdf>=4.0.0
+requests>=2.31.0
+beautifulsoup4>=4.12.0
