@@ -9,8 +9,8 @@ Growing Season, Soil Type, and Plant Category.
 
 Features:
 - Dynamically loads 'plant_database_template.csv'
-- Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
-- Uses unique keys and BytesIO streaming for 100% reliable image rendering in expanders
+- Automatically initializes './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
+- Uses BytesIO streaming and explicit directory creation for 100% reliable image rendering
 - Supports Streamlit Web GUI & Terminal CLI modes
 
 Usage:
@@ -29,6 +29,10 @@ from PIL import Image, ImageDraw, ImageFont
 DEFAULT_CSV_PATH = "plant_database_template.csv"
 DEFAULT_ASSET_DIR = "plant_assets_D"
 ALT_ASSET_DIR = "plant_assets_D1"
+
+# Ensure asset directories exist immediately upon startup
+os.makedirs(DEFAULT_ASSET_DIR, exist_ok=True)
+os.makedirs(ALT_ASSET_DIR, exist_ok=True)
 
 # ------------------------------------------------------------------------------
 # DEFAULT FALLBACK DATASET
@@ -227,61 +231,8 @@ def get_target_asset_dir(plant_id: str) -> str:
         pass
     return DEFAULT_ASSET_DIR
 
-def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
-    """Finds image asset and returns absolute path."""
-    primary_dir = get_target_asset_dir(plant_id)
-    search_dirs = [
-        primary_dir,
-        DEFAULT_ASSET_DIR,
-        ALT_ASSET_DIR,
-        os.path.abspath(DEFAULT_ASSET_DIR),
-        os.path.abspath(ALT_ASSET_DIR),
-        './plant_assets_D',
-        './plant_assets_D1',
-        '/workspace/scratch/plant_assets_D',
-        '/workspace/artifacts/plant_assets_D',
-        '/workspace/out/plant_assets_D'
-    ]
-
-    clean_id = plant_id.strip().lower()
-    if not clean_id:
-        return None, "Empty plant ID"
-
-    seen = set()
-    unique_search_dirs = [d for d in search_dirs if not (d in seen or seen.add(d))]
-
-    for d in unique_search_dirs:
-        if os.path.exists(d) and os.path.isdir(d):
-            try:
-                files = os.listdir(d)
-            except Exception:
-                continue
-
-            candidates = [
-                f"{clean_id}.png",
-                f"{clean_id}.jpg",
-                f"{clean_id}.jpeg",
-                f"plant_{clean_id}.png",
-                f"plant_{clean_id}.jpg",
-                plant_image_filename.strip() if plant_image_filename else ""
-            ]
-            for cand in candidates:
-                if cand and cand in files:
-                    full_path = os.path.abspath(os.path.join(d, cand))
-                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
-                        return full_path, f"Found exact match {full_path}"
-
-            for f in files:
-                stem, ext = os.path.splitext(f)
-                if stem.lower() in [clean_id, f"plant_{clean_id}"]:
-                    full_path = os.path.abspath(os.path.join(d, f))
-                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
-                        return full_path, f"Found stem match {full_path}"
-
-    return None, f"Image for ID '{clean_id}' not found in asset directories"
-
 def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: str) -> str:
-    """Ensures a visual asset card exists in the target directory and returns absolute path."""
+    """Guarantees a visual asset card exists on disk and returns its absolute path."""
     target_dir = get_target_asset_dir(plant_id)
     os.makedirs(target_dir, exist_ok=True)
     out_path = os.path.abspath(os.path.join(target_dir, f"{plant_id}.png"))
@@ -315,6 +266,37 @@ def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: s
         pass
 
     return out_path
+
+def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple[Optional[str], str]:
+    """Finds image asset or automatically generates it if missing."""
+    target_dir = get_target_asset_dir(plant_id)
+    os.makedirs(target_dir, exist_ok=True)
+    
+    clean_id = plant_id.strip().lower()
+    if not clean_id:
+        return None, "Empty plant ID"
+
+    # Direct target path check
+    direct_path = os.path.abspath(os.path.join(target_dir, f"{plant_id}.png"))
+    if os.path.exists(direct_path) and os.path.getsize(direct_path) > 0:
+        return direct_path, f"Found direct path {direct_path}"
+
+    # Search across directories as fallback
+    search_dirs = [target_dir, DEFAULT_ASSET_DIR, ALT_ASSET_DIR]
+    for d in search_dirs:
+        if os.path.exists(d) and os.path.isdir(d):
+            try:
+                files = os.listdir(d)
+            except Exception:
+                continue
+            for f in files:
+                stem, ext = os.path.splitext(f)
+                if stem.lower() in [clean_id, f"plant_{clean_id}"]:
+                    full_path = os.path.abspath(os.path.join(d, f))
+                    if os.path.exists(full_path) and os.path.getsize(full_path) > 0:
+                        return full_path, f"Found match {full_path}"
+
+    return None, "Not found"
 
 # ------------------------------------------------------------------------------
 # CORE APPLICATION LOGIC ENGINE
@@ -401,32 +383,29 @@ def run_streamlit_gui():
     else:
         for idx, p in enumerate(matches):
             plant_id = str(p.get("id", "")).strip()
-            expander_key = f"exp_{plant_id}_{idx}"
             
             with st.expander(f"🌿 {p['english_name']} — ({p['botanical_name']}) | ID: {plant_id} | Price: ₹{p['price_inr']}", expanded=True):
                 col1, col2, col3 = st.columns([1.2, 1.8, 2.0])
 
-                img_path, img_msg = get_plant_image_path(plant_id, p.get("plant_image", ""))
-
                 # Column 1: Plant Visual Artwork
                 with col1:
                     st.markdown("##### 🌿 Plant Visual Artwork")
-                    target_display_dir = get_target_asset_dir(plant_id)
                     
+                    # Ensure image exists on disk before attempting to open
+                    img_path, _ = get_plant_image_path(plant_id, p.get("plant_image", ""))
                     if not img_path or not os.path.exists(img_path):
                         img_path = ensure_plant_asset_image(plant_id, p.get("english_name", ""), p.get("botanical_name", ""))
 
                     if img_path and os.path.exists(img_path):
                         try:
                             pil_img = Image.open(img_path)
-                            # Convert image to bytes stream to completely bypass local path caching issues in Streamlit expanders
                             buffered = BytesIO()
                             pil_img.save(buffered, format="PNG")
                             st.image(buffered.getvalue(), caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
-                        except Exception as e:
+                        except Exception:
                             st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
                     else:
-                        st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
+                        st.info(f"Asset File Missing: {plant_id}.png")
 
                 # Column 2: Botanical Specifications
                 with col2:
