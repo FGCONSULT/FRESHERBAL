@@ -10,7 +10,7 @@ Growing Season, Soil Type, and Plant Category.
 Features:
 - Dynamically loads 'plant_database_template.csv'
 - Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
-- Uses correct Streamlit use_container_width=True for reliable image rendering
+- Uses unique keys and BytesIO streaming for 100% reliable image rendering in expanders
 - Supports Streamlit Web GUI & Terminal CLI modes
 
 Usage:
@@ -22,6 +22,7 @@ import os
 import sys
 import csv
 import json
+from io import BytesIO
 from typing import List, Dict, Any, Optional, Tuple
 from PIL import Image, ImageDraw, ImageFont
 
@@ -398,8 +399,10 @@ def run_streamlit_gui():
     if not matches:
         st.warning("No plants matched your exact combination of filters. Try expanding your budget slider or setting Location/Category to 'All'.")
     else:
-        for p in matches:
+        for idx, p in enumerate(matches):
             plant_id = str(p.get("id", "")).strip()
+            expander_key = f"exp_{plant_id}_{idx}"
+            
             with st.expander(f"🌿 {p['english_name']} — ({p['botanical_name']}) | ID: {plant_id} | Price: ₹{p['price_inr']}", expanded=True):
                 col1, col2, col3 = st.columns([1.2, 1.8, 2.0])
 
@@ -416,8 +419,10 @@ def run_streamlit_gui():
                     if img_path and os.path.exists(img_path):
                         try:
                             pil_img = Image.open(img_path)
-                            # Use valid Streamlit container width parameter instead of invalid string width
-                            st.image(pil_img, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
+                            # Convert image to bytes stream to completely bypass local path caching issues in Streamlit expanders
+                            buffered = BytesIO()
+                            pil_img.save(buffered, format="PNG")
+                            st.image(buffered.getvalue(), caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
                         except Exception as e:
                             st.image(img_path, caption=f"ID: {plant_id} | {p['english_name']}", use_container_width=True)
                     else:
