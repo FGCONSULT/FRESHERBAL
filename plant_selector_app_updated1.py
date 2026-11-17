@@ -2,14 +2,15 @@
 ================================================================================
 🌿 FRESHERBAL® SMART PLANT SELECTOR & CULTIVATION GUIDE APPLICATION
 ================================================================================
-An interactive Streamlit & CLI application for selecting plant species and obtaining
-detailed botanical profiles, cultivation parameters, matched containers, and 
-Package of Practices (PoP) based on user criteria: Budget, Planting Area, Location, 
-Growing Season, Soil Type, and Plant Category.
+
+An interactive Streamlit & CLI application for selecting plant species and 
+obtaining detailed botanical profiles, cultivation parameters, matched containers, 
+and Package of Practices (PoP) based on user criteria: Budget, Planting Area, 
+Location, Growing Season, Soil Type, and Plant Category.
 
 Features:
 - Dynamically loads 'plant_database_template.csv'
-- Displays plant visual artwork from './plant_assets_D' (P001-P099) and './plant_assets_D1' (P100-P199)
+- Displays plant visual artwork from './plant_assets_D' (P001-P099), './plant_assets_D1' (P100-P199), and './plant_assets_D2' (P200-P299)
 - Uses modern Streamlit 1.55+ width='stretch' image parameter (no deprecation warnings)
 - Supports Streamlit Web GUI & Terminal CLI modes
 
@@ -28,6 +29,7 @@ from PIL import Image, ImageDraw, ImageFont
 DEFAULT_CSV_PATH = "plant_database_template.csv"
 DEFAULT_ASSET_DIR = "plant_assets_D"
 ALT_ASSET_DIR = "plant_assets_D1"
+ALT_ASSET_DIR1 = "plant_assets_D2"
 
 # ------------------------------------------------------------------------------
 # DEFAULT FALLBACK DATASET
@@ -112,6 +114,46 @@ DEFAULT_PLANT_DATABASE: List[Dict[str, Any]] = [
         "availability": "High",
         "price_inr": 500,
         "price_usd": 14.0
+    },
+    {
+        "id": "P200",
+        "english_name": "Sample Plant P200",
+        "botanical_name": "Exotic specimen p200",
+        "hindi_name": "Sample Plant 200 (नमूना पौधा)",
+        "varieties": ["Standard"],
+        "category": ["Aesthetics", "Outdoor"],
+        "plant_type": "Evergreen shrub",
+        "habit": "Upright",
+        "height": "1.2 m",
+        "spread": "0.6 m",
+        "suitable_locations": ["Garden walls", "Terrace"],
+        "suitable_planters": '14" Terracotta Pot',
+        "growing_season": "Spring",
+        "nursery_sowing_time": "March",
+        "seedling_transplanting_time": "April",
+        "soil_type": "Sandy loam",
+        "soil_ph": "6.8",
+        "sun_intensity": "Full sun",
+        "humidity": "50%",
+        "plant_image": "plant_p200.png",
+        "package_of_practices": {
+            "propagation_material": "Cuttings",
+            "seed_rate": "1 cutting",
+            "seed_spacing": "30 cm",
+            "sowing_method": "Direct potting",
+            "manuring": "Organic compost",
+            "irrigation": "Regular",
+            "intercultural_practices": "Pruning",
+            "plant_protection": "Neem oil",
+            "gestation_period": "3 weeks",
+            "harvest_method": "Pruning",
+            "yield": "Medium"
+        },
+        "use": "Landscaping",
+        "locality_source": "Local Nursery",
+        "availability": "High",
+        "price_inr": 600,
+        "price_usd": 16.0
     }
 ]
 
@@ -128,15 +170,16 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
         '/workspace/artifacts/plant_database_template.csv',
         '/workspace/scratch/plant_database_template.csv'
     ]
+    
     target_path = None
     for p in search_paths:
         if os.path.exists(p) and os.path.isfile(p):
             target_path = p
             break
-
+            
     if not target_path:
         return DEFAULT_PLANT_DATABASE
-
+        
     records = []
     try:
         with open(target_path, mode='r', encoding='utf-8', errors='ignore') as f:
@@ -146,23 +189,22 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
                 eng_name = row.get("english_name", "").strip()
                 if not plant_id or not eng_name:
                     continue
-
+                
                 # Parse pipe-separated lists
                 cats = [c.strip() for c in row.get("category", "").replace(",", "|").split("|") if c.strip()]
                 locs = [l.strip() for l in row.get("suitable_locations", "").replace(",", "|").split("|") if l.strip()]
                 vars_list = [v.strip() for v in row.get("varieties", "").split(",") if v.strip()]
-
+                
                 # Parse price
                 try:
                     price_inr = float(row.get("price_inr", 250))
                 except Exception:
                     price_inr = 250.0
-
                 try:
                     price_usd = float(row.get("price_usd", 7.5))
                 except Exception:
                     price_usd = 7.5
-
+                
                 pop = {
                     "propagation_material": row.get("propagation_material", "Stem cuttings / seeds"),
                     "seed_rate": row.get("seed_rate", "2–3 per container"),
@@ -176,7 +218,7 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
                     "harvest_method": row.get("harvest_method", "Foliage pruning / stem trimming"),
                     "yield": row.get("yield", "Abundant healthy foliage")
                 }
-
+                
                 rec = {
                     "id": plant_id,
                     "english_name": eng_name,
@@ -208,14 +250,14 @@ def load_csv_database(csv_path: str = DEFAULT_CSV_PATH) -> List[Dict[str, Any]]:
                 records.append(rec)
     except Exception:
         return DEFAULT_PLANT_DATABASE
-
+        
     return records if records else DEFAULT_PLANT_DATABASE
 
 # ------------------------------------------------------------------------------
-# DYNAMIC DIRECTORY ROUTER FOR P001-P099 & P100-P199
+# DYNAMIC DIRECTORY ROUTER FOR P001-P099, P100-P199 & P200-P299
 # ------------------------------------------------------------------------------
 def get_target_asset_dir(plant_id: str) -> str:
-    """Routes plant ID to the correct folder: P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1."""
+    """Routes plant ID to the correct folder: P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1, P200-P299 -> plant_assets_D2."""
     clean_id = plant_id.strip().upper()
     try:
         if clean_id.startswith('P'):
@@ -224,6 +266,8 @@ def get_target_asset_dir(plant_id: str) -> str:
                 return DEFAULT_ASSET_DIR
             elif 100 <= num_part <= 199:
                 return ALT_ASSET_DIR
+            elif 200 <= num_part <= 299:
+                return ALT_ASSET_DIR1
     except ValueError:
         pass
     return DEFAULT_ASSET_DIR
@@ -235,21 +279,22 @@ def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple
         primary_dir,
         DEFAULT_ASSET_DIR,
         ALT_ASSET_DIR,
+        ALT_ASSET_DIR1,
         './plant_assets_D',
         './plant_assets_D1',
+        './plant_assets_D2',
         '/workspace/scratch/plant_assets_D',
         '/workspace/artifacts/plant_assets_D',
         '/workspace/out/plant_assets_D'
     ]
-
+    
     clean_id = plant_id.strip().lower()
     if not clean_id:
         return None, "Empty plant ID"
-
-    # Deduplicate search paths preserving order
+        
     seen = set()
     unique_search_dirs = [d for d in search_dirs if not (d in seen or seen.add(d))]
-
+    
     for d in unique_search_dirs:
         if os.path.exists(d) and os.path.isdir(d):
             files = os.listdir(d)
@@ -263,7 +308,7 @@ def get_plant_image_path(plant_id: str, plant_image_filename: str = "") -> Tuple
                 clean_img = plant_image_filename.strip()
                 if clean_img in files:
                     return os.path.join(d, clean_img), f"Found {d}/{clean_img}"
-
+                    
     return None, f"Image for ID '{clean_id}' not found in asset directories"
 
 def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: str) -> str:
@@ -271,34 +316,38 @@ def ensure_plant_asset_image(plant_id: str, english_name: str, botanical_name: s
     target_dir = get_target_asset_dir(plant_id)
     os.makedirs(target_dir, exist_ok=True)
     out_path = os.path.join(target_dir, f"{plant_id}.png")
+    
     if os.path.exists(out_path):
         return out_path
-
+        
     try:
         img = Image.new('RGB', (600, 450), color=(245, 248, 242))
         draw = ImageDraw.Draw(img)
         draw.rectangle([15, 15, 585, 435], outline=(30, 80, 45), width=4)
         draw.rectangle([25, 25, 575, 80], fill=(30, 80, 45))
+        
         try:
             font_title = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 20)
             font_sub = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Oblique.ttf', 14)
             font_body = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 14)
         except Exception:
             font_title = font_sub = font_body = None
-
+            
         draw.text((40, 35), f"ID: {plant_id} | {english_name.upper()[:28]}", fill=(255, 255, 255), font=font_title)
         if botanical_name:
             draw.text((40, 65), f"({botanical_name})", fill=(200, 235, 200), font=font_sub)
-
+            
         draw.ellipse([200, 150, 400, 350], fill=(45, 115, 60), outline=(20, 60, 30), width=3)
         draw.polygon([(300, 120), (220, 230), (380, 230)], fill=(65, 145, 80))
         draw.line([(300, 130), (300, 310)], fill=(220, 245, 220), width=3)
+        
         draw.text((40, 360), f"Filename: {plant_id}.png", fill=(60, 60, 60), font=font_body)
         draw.text((40, 390), f"Folder: {target_dir}", fill=(30, 80, 45), font=font_body)
+        
         img.save(out_path)
     except Exception:
         pass
-
+        
     return out_path
 
 # ------------------------------------------------------------------------------
@@ -341,32 +390,19 @@ class PlantSelectorEngine:
 # ------------------------------------------------------------------------------
 def run_streamlit_gui():
     import streamlit as st
-    st.set_page_config(
-        page_title="FresHerbal® Plant Selector App",
-        page_icon="🌿",
-        layout="wide"
-    )
-
+    st.set_page_config(page_title="FresHerbal® Plant Selector App", page_icon="🌿", layout="wide")
     st.title("🌿 FresHerbal® Smart Plant Selector & Cultivation Guide")
     st.markdown("""
     Select your specific criteria below (Category, Location, Budget, Soil Type, Growing Season) to discover suitable plant species along with their complete **Plant Visual Artwork**, **Botanical Specifications**, **Matched Planters**, and **Package of Practices (PoP)**.
     """)
-
+    
     database_records = load_csv_database()
     engine = PlantSelectorEngine(database=database_records)
-
-    categories = [
-        "All", "Aromatic", "Aesthetics", "Medicinal", "Indoor", 
-        "Spice hub", "Culinary", "Greens", "Vegifresh", "Fruit plants", "Other plants"
-    ]
-    locations = [
-        "All", "small backyard garden", "small indoor eatout room", "garden walls", 
-        "Trellis", "Patio", "Large town garden", "sunny rooftops", "shady rooftops", 
-        "Terrace", "Balconies", "Frontgate", "Frontyard garden", "Front home door", 
-        "Back home door", "open field"
-    ]
+    
+    categories = ["All", "Aromatic", "Aesthetics", "Medicinal", "Indoor", "Spice hub", "Culinary", "Greens", "Vegifresh", "Fruit plants", "Other plants"]
+    locations = ["All", "small backyard garden", "small indoor eatout room", "garden walls", "Trellis", "Patio", "Large town garden", "sunny rooftops", "shady rooftops", "Terrace", "Balconies", "Frontgate", "Frontyard garden", "Front home door", "Back home door", "open field"]
     seasons = ["All", "Spring", "Summer", "Monsoon", "Autumn", "Winter"]
-
+    
     # Sidebar Filter Controls
     st.sidebar.header("🎯 Filter Options")
     selected_cat = st.sidebar.selectbox("Plant Category", categories)
@@ -374,7 +410,7 @@ def run_streamlit_gui():
     selected_season = st.sidebar.selectbox("Growing Season / Planting Time", seasons)
     max_price = st.sidebar.slider("Max Budget (INR)", min_value=50, max_value=3000, value=2500, step=50)
     soil_filter = st.sidebar.text_input("Soil Type Keyword (Optional)", placeholder="e.g. Peat, Sandy, Loam")
-
+    
     # Perform Filter Query
     matches = engine.filter_plants(
         category=selected_cat if selected_cat != "All" else None,
@@ -383,9 +419,9 @@ def run_streamlit_gui():
         soil_type=soil_filter if soil_filter.strip() else None,
         growing_season=selected_season if selected_season != "All" else None
     )
-
+    
     st.subheader(f"🔍 Matching Results ({len(matches)} Plants Found)")
-
+    
     if not matches:
         st.warning("No plants matched your exact combination of filters. Try expanding your budget slider or setting Location/Category to 'All'.")
     else:
@@ -393,10 +429,9 @@ def run_streamlit_gui():
             plant_id = str(p.get("id", "")).strip()
             with st.expander(f"🌿 {p['english_name']} — ({p['botanical_name']}) | ID: {plant_id} | Price: ₹{p['price_inr']}", expanded=True):
                 col1, col2, col3 = st.columns([1.2, 1.8, 2.0])
-
-                # Image resolution matching ID range (P001-P099 -> plant_assets_D, P100-P199 -> plant_assets_D1)
+                
                 img_path, img_msg = get_plant_image_path(plant_id, p.get("plant_image", ""))
-
+                
                 # Column 1: Plant Visual Artwork
                 with col1:
                     st.markdown("##### 🌿 Plant Visual Artwork")
@@ -409,7 +444,7 @@ def run_streamlit_gui():
                             st.image(fallback_card, caption=f"ID: {plant_id} | {p['english_name']}", width="stretch")
                         else:
                             st.info(f"Asset File: {target_display_dir}/{plant_id}.png")
-
+                            
                 # Column 2: Botanical Specifications
                 with col2:
                     st.markdown("##### 📋 Botanical Specifications")
@@ -423,7 +458,7 @@ def run_streamlit_gui():
                     st.markdown(f"**Recommended Planter:** 🏺 `{p['suitable_planters']}`")
                     st.markdown(f"**Locality Availability:** {p['availability']} ({p['locality_source']})")
                     st.markdown(f"**Estimated Price:** ₹{p['price_inr']} (~${p['price_usd']} USD)")
-
+                    
                 # Column 3: Package of Practices & Cultivation
                 with col3:
                     st.markdown("##### 🌱 Package of Practices (PoP)")
@@ -453,6 +488,6 @@ def run_cli():
 
 if __name__ == "__main__":
     if "streamlit" in sys.modules or os.environ.get("STREAMLIT_SERVER_PORT") or any("streamlit" in arg for arg in sys.argv):
-        run_streamlit_gui()
+        streamlit run [plant_selector_app_updated1.py](https://github.com/)
     else:
         run_cli()
