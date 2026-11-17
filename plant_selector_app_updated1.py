@@ -488,6 +488,6 @@ def run_cli():
 
 if __name__ == "__main__":
     if "streamlit" in sys.modules or os.environ.get("STREAMLIT_SERVER_PORT") or any("streamlit" in arg for arg in sys.argv):
-        streamlit run [plant_selector_app_updated1.py](https://github.com/)
+        run_streamlit_gui()
     else:
         run_cli()
